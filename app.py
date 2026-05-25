@@ -7,7 +7,6 @@ API_KEY = '74fbc12e39284a6df924842591bd4992'
 
 st.set_page_config(page_title="Movie Recommender", layout="wide")
 
-# Mood to genre mapping
 MOOD_GENRE_MAP = {
     "😊 Happy": [35, 10751, 16],
     "😢 Sad": [18, 10749],
@@ -118,6 +117,7 @@ def show_movie_details(movie_id, movie_title):
     if st.button("❌ Close Details"):
         st.session_state.selected_movie_id = None
         st.session_state.selected_movie_title = None
+        st.session_state.show_recommendations = False
         st.rerun()
 
 
@@ -131,6 +131,16 @@ if 'selected_movie_id' not in st.session_state:
     st.session_state.selected_movie_id = None
 if 'selected_movie_title' not in st.session_state:
     st.session_state.selected_movie_title = None
+if 'show_recommendations' not in st.session_state:
+    st.session_state.show_recommendations = False
+if 'recommended_movie_names' not in st.session_state:
+    st.session_state.recommended_movie_names = []
+if 'recommended_movie_posters' not in st.session_state:
+    st.session_state.recommended_movie_posters = []
+if 'recommended_movie_ids' not in st.session_state:
+    st.session_state.recommended_movie_ids = []
+if 'recommended_movie_ratings' not in st.session_state:
+    st.session_state.recommended_movie_ratings = []
 
 # UI
 st.title('🎬 Movie Recommender System')
@@ -149,8 +159,15 @@ with tab1:
         st.session_state.selected_movie_title = None
 
         with st.spinner('Finding best movies for you...'):
-            recommended_movie_names, recommended_movie_posters, recommended_movie_ids, recommended_movie_ratings = recommend(selected_movie_name)
+            names, posters, ids, ratings = recommend(selected_movie_name)
+            st.session_state.recommended_movie_names = names
+            st.session_state.recommended_movie_posters = posters
+            st.session_state.recommended_movie_ids = ids
+            st.session_state.recommended_movie_ratings = ratings
+            st.session_state.show_recommendations = True
 
+    # Always show recommendations if they exist in session
+    if st.session_state.show_recommendations and st.session_state.recommended_movie_names:
         st.markdown("### Recommended Movies (click a title to see details)")
 
         for i in range(0, 20, 5):
@@ -158,17 +175,23 @@ with tab1:
             for j in range(5):
                 movie_index = i + j
                 with cols[j]:
-                    st.image(recommended_movie_posters[movie_index])
-                    rating = recommended_movie_ratings[movie_index]
+                    st.image(st.session_state.recommended_movie_posters[movie_index])
+                    rating = st.session_state.recommended_movie_ratings[movie_index]
                     st.markdown(f"⭐ **{rating}/10**")
                     st.markdown(get_star_display(rating))
                     if st.button(
-                        recommended_movie_names[movie_index],
+                        st.session_state.recommended_movie_names[movie_index],
                         key=f"btn_{movie_index}"
                     ):
-                        st.session_state.selected_movie_id = recommended_movie_ids[movie_index]
-                        st.session_state.selected_movie_title = recommended_movie_names[movie_index]
-                        st.rerun()
+                        st.session_state.selected_movie_id = st.session_state.recommended_movie_ids[movie_index]
+                        st.session_state.selected_movie_title = st.session_state.recommended_movie_names[movie_index]
+
+        # Show details INSIDE tab1 so it stays visible
+        if st.session_state.selected_movie_id:
+            show_movie_details(
+                st.session_state.selected_movie_id,
+                st.session_state.selected_movie_title
+            )
 
 # ---- TAB 2: Mood Based ----
 with tab2:
@@ -194,10 +217,3 @@ with tab2:
                 st.markdown(get_star_display(m['rating']))
                 with st.expander("Overview"):
                     st.write(m['overview'])
-
-# Show movie details if a movie was clicked
-if st.session_state.selected_movie_id:
-    show_movie_details(
-        st.session_state.selected_movie_id,
-        st.session_state.selected_movie_title
-    )
